@@ -466,8 +466,12 @@
                        (write-header* :content-type (mimes:mime content))
                        (if-let ((content-length (assoc :content-length headers :test #'string-equal)))
                          (write-header :content-length (cdr content-length))
-                         (with-open-file (in content)
-                           (write-header :content-length (file-length in))))))))
+                         (with-open-file (in content :element-type '(unsigned-byte 8))
+                           (write-header :content-length (file-length in)))))
+                      (stream
+                       (if-let ((content-length (assoc :content-length headers :test #'string-equal)))
+                         (write-header :content-length (cdr content-length))
+                         (error "Content-Length header must be supplied for stream inputs."))))))
 
                  ;; Custom headers
                  (loop for (name . value) in headers
@@ -507,7 +511,10 @@
                (pathname (with-open-file (in content :element-type '(unsigned-byte 8))
                            (copy-stream in stream)))
                (cons
-                (write-multipart-content content boundary stream)))
+                (write-multipart-content content boundary stream))
+               (stream
+                (let ((content-length (cdr (assoc :content-length headers :test #'string-equal))))
+                  (copy-stream content stream :end content-length))))
              (with-retrying (force-output stream)))
 
          start-reading
